@@ -4,25 +4,17 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/apache/arrow/go/v14/arrow"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
+	"github.com/cloudquery/plugin-sdk/v4/transformers"
 	"github.com/guardian/cq-source-github-languages/client"
+	"github.com/guardian/cq-source-github-languages/internal/github"
 )
 
 func LanguagesTable() *schema.Table {
 	return &schema.Table{
 		Name:     "github-languages",
 		Resolver: fetchLanguages,
-		Columns: []schema.Column{
-			{
-				Name: "id",
-				Type: arrow.BinaryTypes.String,
-			},
-			{
-				Name: "languages",
-				Type: arrow.BinaryTypes.String,
-			},
-		},
+		Columns:  transformers.TransformWithStruct(&github.Languages{}),
 	}
 }
 

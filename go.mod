@@ -10,6 +10,8 @@ require (
 	github.com/rs/zerolog v1.29.1
 )
 
+require github.com/google/go-querystring v1.1.0 // indirect
+
 replace github.com/apache/arrow/go/v14 => github.com/cloudquery/arrow/go/v14 v14.0.0-20230904001200-cd3d4114faa0
 
 require (
@@ -50,6 +52,7 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/gomarkdown/markdown v0.0.0-20231115200524-a660076da3fd // indirect
 	github.com/google/flatbuffers v23.5.26+incompatible // indirect
+	github.com/google/go-github/v57 v57.0.0
 	github.com/google/uuid v1.4.0 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.0.1 // indirect
