@@ -26,10 +26,19 @@ func LanguagesTable() *schema.Table {
 }
 
 func fetchLanguages(ctx context.Context, meta schema.ClientMeta, parent *schema.Resource, res chan<- any) error {
-	customClient := github.NewClient("")
-	l, err := c.GetLanguages("guardian", "service-catalogue")
+	c := github.CustomClient("")
+	allRepos, _, err := c.GitHubClient.Repositories.ListByOrg(ctx, "guardian", nil)
 	if err != nil {
 		return err
 	}
+	for _, repo := range allRepos {
+		langs, err := c.GetLanguages(*repo.Owner.Login, *repo.Name)
+		if err != nil {
+			return err
+		}
 
+		res <- langs
+
+	}
+	return nil
 }

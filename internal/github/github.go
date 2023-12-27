@@ -13,18 +13,17 @@ type Languages struct {
 }
 
 type Client struct {
-	token string
+	GitHubClient *github.Client
 }
 
-func NewClient(baseURL string) *Client {
+func CustomClient(token string) *Client {
 	return &Client{
-		token: "",
+		GitHubClient: github.NewClient(nil).WithAuthToken(token),
 	}
 }
 
 func (c *Client) GetLanguages(owner string, name string) (*Languages, error) {
-	client := github.NewClient(nil).WithAuthToken(c.token)
-	langs, _, err := client.Repositories.ListLanguages(context.Background(), owner, name)
+	langs, _, err := c.GitHubClient.Repositories.ListLanguages(context.Background(), owner, name)
 	if err != nil {
 		return nil, err
 	}
