@@ -1,8 +1,10 @@
 package github
 
 import (
-	"io"
-	"net/http"
+	"context"
+	"fmt"
+
+	"github.com/google/go-github/v57/github"
 )
 
 type Languages struct {
@@ -10,43 +12,25 @@ type Languages struct {
 	Languages string
 }
 
-const defaultURL = "https://api.github.com"
-
 type Client struct {
-	baseURL string
-	client  *http.Client
-	token   string
+	token string
 }
 
 func NewClient(baseURL string) *Client {
 	return &Client{
-		baseURL: defaultURL,
-		client:  http.DefaultClient,
-		token:   "",
+		token: "",
 	}
 }
 
 func (c *Client) GetLanguages(owner string, name string) (*Languages, error) {
-	languagesURL := c.baseURL + "/repos/" + owner + "/" + name + "/languages"
-	req, err := http.NewRequest("GET", languagesURL, nil)
+	client := github.NewClient(nil).WithAuthToken(c.token)
+	langs, _, err := client.Repositories.ListLanguages(context.Background(), owner, name)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Accept", "application/vnd.github.v3+json")
-	req.Header.Set("User-Agent", "cloudquery")
-	req.Header.Set("Authorization", "token "+c.token)
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-
 	l := &Languages{
 		FullName:  owner + "/" + name,
-		Languages: string(body),
+		Languages: fmt.Sprint(langs),
 	}
 	return l, nil
 
