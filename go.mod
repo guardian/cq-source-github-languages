@@ -5,12 +5,14 @@ go 1.21.1
 toolchain go1.21.5
 
 require (
-	github.com/apache/arrow/go/v14 v14.0.0-20231031200323-c49e24273160
 	github.com/cloudquery/plugin-sdk/v4 v4.20.0
 	github.com/rs/zerolog v1.29.1
 )
 
-require github.com/google/go-querystring v1.1.0 // indirect
+require (
+	github.com/apache/arrow/go/v14 v14.0.0-20231031200323-c49e24273160 // indirect
+	github.com/google/go-querystring v1.1.0 // indirect
+)
 
 replace github.com/apache/arrow/go/v14 => github.com/cloudquery/arrow/go/v14 v14.0.0-20230904001200-cd3d4114faa0
 
@@ -111,7 +113,7 @@ require (
 	go.opentelemetry.io/proto/otlp v1.0.0 // indirect
 	golang.org/x/arch v0.3.0 // indirect
 	golang.org/x/crypto v0.16.0 // indirect
-	golang.org/x/exp v0.0.0-20231127185646-65229373498e // indirect
+	golang.org/x/exp v0.0.0-20231127185646-65229373498e
 	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/net v0.19.0 // indirect
 	golang.org/x/sync v0.5.0 // indirect
