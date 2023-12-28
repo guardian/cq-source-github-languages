@@ -12,8 +12,7 @@ type Client struct {
 }
 
 func (c *Client) ID() string {
-	// TODO: Change to either your plugin name or a unique dynamic identifier
-	return "ID"
+	return "github-languages"
 }
 
 func (c *Client) Logger() *zerolog.Logger {

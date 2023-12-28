@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"os"
 
 	"github.com/apache/arrow/go/v14/arrow"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
@@ -14,7 +15,7 @@ func LanguagesTable() *schema.Table {
 		Resolver: fetchLanguages,
 		Columns: []schema.Column{
 			{
-				Name: "id",
+				Name: "full_name",
 				Type: arrow.BinaryTypes.String,
 			},
 			{
@@ -26,12 +27,13 @@ func LanguagesTable() *schema.Table {
 }
 
 func fetchLanguages(ctx context.Context, meta schema.ClientMeta, parent *schema.Resource, res chan<- any) error {
-	c := github.CustomClient("")
+	token := os.Getenv("GITHUB_TOKEN")
+	c := github.CustomClient(token)
 	allRepos, _, err := c.GitHubClient.Repositories.ListByOrg(ctx, "guardian", nil)
 	if err != nil {
 		return err
 	}
-	for _, repo := range allRepos {
+	for _, repo := range allRepos[1:10] {
 		langs, err := c.GetLanguages(*repo.Owner.Login, *repo.Name)
 		if err != nil {
 			return err
