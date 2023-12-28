@@ -8,6 +8,7 @@ import (
 )
 
 type Languages struct {
+	// TODO find a way to share this with table.go
 	FullName  string
 	Languages []string
 }

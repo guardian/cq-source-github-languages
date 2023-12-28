@@ -11,6 +11,7 @@ import (
 )
 
 type Languages struct {
+	// TODO find a way to share this with github.go
 	FullName  string
 	Languages []string
 }
@@ -24,12 +25,15 @@ func LanguagesTable() *schema.Table {
 }
 
 func fetchLanguages(ctx context.Context, meta schema.ClientMeta, parent *schema.Resource, res chan<- any) error {
+	// TODO authenticate via GitHub App
 	token := os.Getenv("GITHUB_TOKEN")
 	c := github.CustomClient(token)
 	allRepos, _, err := c.GitHubClient.Repositories.ListByOrg(ctx, "guardian", nil)
 	if err != nil {
 		return err
 	}
+
+	// TODO only fetch languages for repositories with `topic = production`
 	for _, repo := range allRepos[1:10] {
 		langs, err := c.GetLanguages(*repo.Owner.Login, *repo.Name)
 		if err != nil {
