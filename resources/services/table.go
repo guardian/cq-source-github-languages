@@ -2,8 +2,9 @@ package services
 
 import (
 	"context"
-	"github.com/cloudquery/plugin-sdk/v4/transformers"
 	"os"
+
+	"github.com/cloudquery/plugin-sdk/v4/transformers"
 
 	"github.com/cloudquery/plugin-sdk/v4/schema"
 	"github.com/guardian/cq-source-github-languages/internal/github"
@@ -11,7 +12,7 @@ import (
 
 type Languages struct {
 	FullName  string
-	Languages map[string]string
+	Languages []string
 }
 
 func LanguagesTable() *schema.Table {
