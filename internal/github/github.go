@@ -2,14 +2,14 @@ package github
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/google/go-github/v57/github"
+	"golang.org/x/exp/maps"
 )
 
 type Languages struct {
 	FullName  string
-	Languages string
+	Languages []string
 }
 
 type Client struct {
@@ -29,7 +29,7 @@ func (c *Client) GetLanguages(owner string, name string) (*Languages, error) {
 	}
 	l := &Languages{
 		FullName:  owner + "/" + name,
-		Languages: fmt.Sprint(langs),
+		Languages: maps.Keys(langs),
 	}
 	return l, nil
 
