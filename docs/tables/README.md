@@ -2,4 +2,4 @@
 
 ## Tables
 
-- [github-languages](github-languages.md)
+- [github_languages](github_languages.md)
