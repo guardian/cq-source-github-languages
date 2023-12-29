@@ -15,6 +15,7 @@ import (
 type Languages struct {
 	// TODO find a way to share this with github.go
 	FullName  string
+	Name      string
 	Languages []string
 }
 

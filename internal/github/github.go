@@ -10,6 +10,7 @@ import (
 type Languages struct {
 	// TODO find a way to share this with table.go
 	FullName  string
+	Name      string
 	Languages []string
 }
 
@@ -30,6 +31,7 @@ func (c *Client) GetLanguages(owner string, name string) (*Languages, error) {
 	}
 	l := &Languages{
 		FullName:  owner + "/" + name,
+		Name:      name,
 		Languages: maps.Keys(langs),
 	}
 	return l, nil
