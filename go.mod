@@ -6,6 +6,7 @@ toolchain go1.21.5
 
 require (
 	github.com/cloudquery/plugin-sdk/v4 v4.20.0
+	github.com/google/go-github/v66 v66.0.0
 	github.com/rs/zerolog v1.29.1
 )
 
@@ -54,7 +55,6 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/gomarkdown/markdown v0.0.0-20231115200524-a660076da3fd // indirect
 	github.com/google/flatbuffers v23.5.26+incompatible // indirect
-	github.com/google/go-github/v57 v57.0.0
 	github.com/google/uuid v1.4.0 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.0.1 // indirect

@@ -3,7 +3,7 @@ package github
 import (
 	"context"
 
-	"github.com/google/go-github/v57/github"
+	"github.com/google/go-github/v66/github"
 	"golang.org/x/exp/maps"
 )
 

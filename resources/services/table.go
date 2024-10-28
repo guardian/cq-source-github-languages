@@ -8,7 +8,7 @@ import (
 	"github.com/cloudquery/plugin-sdk/v4/transformers"
 
 	"github.com/cloudquery/plugin-sdk/v4/schema"
-	gh "github.com/google/go-github/v57/github"
+	gh "github.com/google/go-github/v66/github"
 	"github.com/guardian/cq-source-github-languages/internal/github"
 )
 
