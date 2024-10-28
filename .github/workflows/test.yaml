@@ -37,4 +37,4 @@ jobs:
         run: make gen
       - name: Fail if generation updated files
         if: github.event_name == 'pull_request'
-        run: test "$(git status -s | wc -l)" -eq 0 || (git status -s; exit 1)
+        run: test "$(git status -s | wc -l)" -eq 0 || (git status -s; echo "Generated docs are out of date. Run 'make gen' and commit again" && exit 1)
