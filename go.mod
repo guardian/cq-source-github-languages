@@ -1,7 +1,8 @@
 module github.com/guardian/cq-source-github-languages
 
-go 1.21.1
-toolchain go1.22.5
+go 1.22.0
+
+toolchain go1.23.3
 
 require (
 	github.com/cloudquery/plugin-sdk/v4 v4.68.0
