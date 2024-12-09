@@ -1,6 +1,7 @@
 module github.com/guardian/cq-source-github-languages
 
-go 1.22.0
+go 1.22.7
+
 toolchain go1.23.3
 
 require (
