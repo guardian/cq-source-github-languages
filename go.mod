@@ -1,10 +1,9 @@
 module github.com/guardian/cq-source-github-languages
 
 go 1.24.1
-
 require (
 	github.com/cloudquery/plugin-sdk/v4 v4.74.1
-	github.com/rs/zerolog v1.33.0
+	github.com/rs/zerolog v1.34.0
 )
 
 require (
