@@ -39,20 +39,4 @@ jobs:
         run: make gen
       - name: Fail if generation updated files
         if: github.event_name == 'pull_request'
-        run: |
-          if [[ -n "$(git status -s)" ]]; then
-            echo "Generated files are out of date. Here's what changed:"
-            echo "=== Changed files ==="
-            git status -s
-            echo ""
-            echo "=== Diff of changed files ==="
-            git --no-pager diff
-            echo ""
-            echo "=== Environment info ==="
-            go version
-            uname -a
-            cloudquery --version || echo "CloudQuery version command failed"
-            echo ""
-            echo "Run 'make gen' locally and commit the changes"
-            exit 1
-          fi
+        run: test "$(git status -s | wc -l)" -eq 0 || (git status -s; echo "Generated docs are out of date. Run 'make gen' and commit again" && exit 1)
