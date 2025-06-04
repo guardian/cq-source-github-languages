@@ -1,0 +1,8 @@
+kind: source
+spec:
+  name: docs/tables
+  version: "v1.0.0"
+  path: "./cq-source-github-languages"
+  registry: "local"
+  tables: ["*"]
+  destinations: ["null"]
