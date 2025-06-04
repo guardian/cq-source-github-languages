@@ -14,7 +14,7 @@ build:
 gen-docs: build
 	rm -rf ./docs/tables/*
 	mkdir -p ./docs/tables
-	# Use cloudquery tables command with a simple spec file - markdown is no longer supported
+	# Use cloudquery command from PATH to generate docs
 	cloudquery tables docs/spec.yml --output-dir . --format markdown
 
 # All gen targets
