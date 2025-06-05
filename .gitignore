@@ -14,10 +14,22 @@
 # Dependency directories (remove the comment below to include it)
 # vendor/
 
+# Build artifacts
+/cq-source-github-languages
+/cloudquery
 
-.DS_Store
-
-cq-source-github-languages
-
-dist
+# Temporary files
+*.tmp
 *.log
+
+# Temporary directories
+/.tmp/
+/tmp/
+
+# IDE files
+.idea/
+.vscode/
+
+# OS specific files
+.DS_Store
+Thumbs.db

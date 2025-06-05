@@ -1,7 +1,5 @@
 # Table: github_languages
 
-This table shows data for Github Languages.
-
 The primary key for this table is **_cq_id**.
 
 ## Columns

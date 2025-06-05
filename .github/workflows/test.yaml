@@ -30,6 +30,10 @@ jobs:
         run: go build .
       - name: Test
         run: make test
+      - name: Setup Cloudquery CLI
+        uses: cloudquery/setup-cloudquery@1c200ac24a1cd86340a19e655efe8284f09b169f # v4.1.6
+        with:
+          version: 'v6.20.5'
       - name: gen
         if: github.event_name == 'pull_request'
         run: make gen
