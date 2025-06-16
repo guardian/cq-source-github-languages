@@ -3,27 +3,20 @@ package services
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/cloudquery/plugin-sdk/v4/transformers"
 
 	"github.com/cloudquery/plugin-sdk/v4/schema"
 	gh "github.com/google/go-github/v57/github"
+	"github.com/guardian/cq-source-github-languages/client"
 	"github.com/guardian/cq-source-github-languages/internal/github"
 )
-
-type Languages struct {
-	// TODO find a way to share this with github.go
-	FullName  string
-	Name      string
-	Languages []string
-}
 
 func LanguagesTable() *schema.Table {
 	return &schema.Table{
 		Name:      "github_languages",
 		Resolver:  fetchLanguages,
-		Transform: transformers.TransformWithStruct(&Languages{}),
+		Transform: transformers.TransformWithStruct(&github.Languages{}),
 	}
 }
 
@@ -67,17 +60,24 @@ func fetchRepositories(ghClient *gh.Client) ([]*gh.Repository, error) {
 }
 
 func fetchLanguages(ctx context.Context, meta schema.ClientMeta, parent *schema.Resource, res chan<- any) error {
-	// TODO authenticate via GitHub App
-	token := os.Getenv("GITHUB_ACCESS_TOKEN")
-	c := github.CustomClient(token)
+	c := meta.(*client.Client)
 
-	repos, err := fetchRepositories(c.GitHubClient)
+	// Initialize GitHub client with App authentication only
+	privateKeyBytes := []byte(c.Spec.PrivateKey)
+	gitHubClient, err := github.NewGitHubAppClient(c.Spec.AppID, c.Spec.InstallationID, privateKeyBytes)
+	if err != nil {
+		return fmt.Errorf("failed to create GitHub App client: %w", err)
+	}
+
+	// Use the official GitHub client for fetchRepositories
+	repos, err := fetchRepositories(gitHubClient.GitHubClient)
 	if err != nil {
 		return err
 	}
 
+	// Use our internal client wrapper for GetLanguages calls
 	for _, repo := range repos {
-		langs, err := c.GetLanguages(*repo.Owner.Login, *repo.Name)
+		langs, err := gitHubClient.GetLanguages(*repo.Owner.Login, *repo.Name)
 		if err != nil {
 			return err
 		}

@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/rs/zerolog"
 )
@@ -20,7 +21,17 @@ func (c *Client) Logger() *zerolog.Logger {
 }
 
 func New(ctx context.Context, logger zerolog.Logger, s *Spec) (Client, error) {
-	// TODO: Add your client initialization here
+	// Validate GitHub App authentication parameters
+	if s.AppID == 0 {
+		return Client{}, fmt.Errorf("github app id is required")
+	}
+	if s.InstallationID == 0 {
+		return Client{}, fmt.Errorf("github app installation id is required")
+	}
+	if s.PrivateKey == "" {
+		return Client{}, fmt.Errorf("github app private key is required")
+	}
+
 	c := Client{
 		logger: logger,
 		Spec:   *s,
