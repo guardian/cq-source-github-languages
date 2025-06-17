@@ -60,7 +60,10 @@ func fetchRepositories(ghClient *gh.Client) ([]*gh.Repository, error) {
 }
 
 func fetchLanguages(ctx context.Context, meta schema.ClientMeta, parent *schema.Resource, res chan<- any) error {
-	c := meta.(*client.Client)
+	c, ok := meta.(*client.Client)
+	if !ok {
+		return fmt.Errorf("failed to assert meta as *client.Client")
+	}
 
 	// Initialize GitHub client with App authentication only
 	privateKeyBytes := []byte(c.Spec.PrivateKey)
