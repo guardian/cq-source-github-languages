@@ -53,6 +53,8 @@ func sanitizePrivateKey(key string) ([]byte, error) {
 
 func main() {
 	// Define flags for command line arguments
+	// NOTE: Command line flags take precedence over environment variables
+	// If both are provided, the CLI flag value will be used
 	appIDStr := flag.String("app-id", os.Getenv("GITHUB_APP_ID"), "GitHub App ID (or set GITHUB_APP_ID env)")
 	installIDStr := flag.String("install-id", os.Getenv("GITHUB_INSTALLATION_ID"), "GitHub Installation ID (or set GITHUB_INSTALLATION_ID env)")
 	keyPath := flag.String("key-path", os.Getenv("GITHUB_PRIVATE_KEY_PATH"), "Path to GitHub App private key file (or set GITHUB_PRIVATE_KEY_PATH env)")
@@ -61,6 +63,22 @@ func main() {
 	repo := flag.String("repo", "cq-source-github-languages", "GitHub repository name")
 
 	flag.Parse()
+
+	// Show which values are being used for debugging
+	fmt.Println("Configuration:")
+	if *appIDStr != "" {
+		fmt.Printf("App ID: %s (from %s)\n", *appIDStr, getValueSource("GITHUB_APP_ID", *appIDStr))
+	}
+	if *installIDStr != "" {
+		fmt.Printf("Installation ID: %s (from %s)\n", *installIDStr, getValueSource("GITHUB_INSTALLATION_ID", *installIDStr))
+	}
+	if *keyPath != "" {
+		fmt.Printf("Key Path: %s (from %s)\n", *keyPath, getValueSource("GITHUB_PRIVATE_KEY_PATH", *keyPath))
+	}
+	if *key != "" {
+		fmt.Printf("Direct Key: [provided] (from %s)\n", getValueSource("GITHUB_PRIVATE_KEY", *key))
+	}
+	fmt.Println()
 
 	// Validate inputs
 	if *appIDStr == "" || *installIDStr == "" || (*keyPath == "" && *key == "") {
@@ -83,6 +101,7 @@ func main() {
 	}
 
 	// Determine which key to use - prefer direct key if provided
+	// Priority: --key flag > GITHUB_PRIVATE_KEY env > --key-path flag > GITHUB_PRIVATE_KEY_PATH env
 	var privateKey []byte
 	if *key != "" {
 		privateKey, err = sanitizePrivateKey(*key)
@@ -90,7 +109,7 @@ func main() {
 			fmt.Printf("Error processing private key: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Println("Using private key provided directly via --key flag or GITHUB_PRIVATE_KEY env var")
+		fmt.Printf("Using private key provided directly (from %s)\n", getValueSource("GITHUB_PRIVATE_KEY", *key))
 	} else {
 		// Read private key file
 		keyData, err := os.ReadFile(*keyPath)
@@ -103,7 +122,7 @@ func main() {
 			fmt.Printf("Error processing private key from file: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Printf("Using private key from file: %s\n", *keyPath)
+		fmt.Printf("Using private key from file: %s (from %s)\n", *keyPath, getValueSource("GITHUB_PRIVATE_KEY_PATH", *keyPath))
 	}
 
 	fmt.Println("Authenticating with GitHub App...")
@@ -140,5 +159,18 @@ func main() {
 	fmt.Println("Languages:")
 	for _, lang := range langs.Languages {
 		fmt.Printf("- %s\n", lang)
+	}
+}
+
+// getValueSource determines if a value came from CLI flag or environment variable
+func getValueSource(envVar, currentValue string) string {
+	envValue := os.Getenv(envVar)
+	switch envValue {
+	case "":
+		return "CLI flag (no env var set)"
+	case currentValue:
+		return "environment variable"
+	default:
+		return "CLI flag (overriding env var)"
 	}
 }
