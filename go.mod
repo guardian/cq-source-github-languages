@@ -4,7 +4,9 @@ go 1.24.3
 
 require (
 	github.com/cloudquery/plugin-sdk/v4 v4.84.1
+	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/rs/zerolog v1.34.0
+	golang.org/x/oauth2 v0.30.0
 )
 
 require (
@@ -27,7 +29,6 @@ require (
 	github.com/aws/smithy-go v1.22.3 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.2 // indirect
 	github.com/cloudquery/codegen v0.3.28 // indirect
-	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.7 // indirect
@@ -40,7 +41,6 @@ require (
 	go.opentelemetry.io/otel/log v0.12.2 // indirect
 	go.opentelemetry.io/otel/sdk/log v0.12.2 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.36.0 // indirect
-	golang.org/x/oauth2 v0.30.0 // indirect
 )
 
 replace github.com/apache/arrow/go/v14 => github.com/cloudquery/arrow/go/v14 v14.0.0-20230904001200-cd3d4114faa0
