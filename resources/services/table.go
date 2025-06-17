@@ -29,7 +29,7 @@ func contains(s []string, str string) bool {
 	return false
 }
 
-func fetchRepositories(ctx context.Context, ghClient *gh.Client) ([]*gh.Repository, error) {
+func fetchRepositories(ctx context.Context, ghClient *gh.Client, org string) ([]*gh.Repository, error) {
 	opts := &gh.RepositoryListByOrgOptions{
 		ListOptions: gh.ListOptions{
 			PerPage: 100,
@@ -37,7 +37,7 @@ func fetchRepositories(ctx context.Context, ghClient *gh.Client) ([]*gh.Reposito
 
 	var allRepos []*gh.Repository
 	for {
-		repos, resp, err := ghClient.Repositories.ListByOrg(ctx, "guardian", opts)
+		repos, resp, err := ghClient.Repositories.ListByOrg(ctx, org, opts)
 		if err != nil {
 			return nil, err
 		}
@@ -73,7 +73,7 @@ func fetchLanguages(ctx context.Context, meta schema.ClientMeta, parent *schema.
 	}
 
 	// Use the official GitHub client for fetchRepositories
-	repos, err := fetchRepositories(ctx, gitHubClient.GitHubClient)
+	repos, err := fetchRepositories(ctx, gitHubClient.GitHubClient, c.Org())
 	if err != nil {
 		return err
 	}

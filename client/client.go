@@ -37,6 +37,13 @@ func (c *Client) PrivateKey() string {
 	return c.privateKey
 }
 
+func (c *Client) Org() string {
+	if c.Spec.AppAuth != nil {
+		return c.Spec.AppAuth.Org
+	}
+	return ""
+}
+
 func New(ctx context.Context, logger zerolog.Logger, s *Spec) (Client, error) {
 	var appID, installationID int64
 	var privateKeyContent string
