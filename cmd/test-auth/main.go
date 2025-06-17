@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/base64"
 	"flag"
 	"fmt"
@@ -109,8 +110,11 @@ func main() {
 	fmt.Printf("App ID: %d\n", appID)
 	fmt.Printf("Installation ID: %d\n", installID)
 
+	// Create a context for the API calls
+	ctx := context.Background()
+
 	// Create GitHub client
-	client, err := github.NewGitHubAppClient(appID, installID, privateKey)
+	client, err := github.NewGitHubAppClient(ctx, appID, installID, privateKey)
 	if err != nil {
 		fmt.Printf("Error creating GitHub client: %v\n", err)
 		fmt.Println("\nTROUBLESHOOTING TIPS:")
@@ -124,7 +128,7 @@ func main() {
 	fmt.Printf("Fetching languages for %s/%s...\n", *owner, *repo)
 
 	// Test by fetching languages for a repository
-	langs, err := client.GetLanguages(*owner, *repo)
+	langs, err := client.GetLanguages(ctx, *owner, *repo)
 	if err != nil {
 		fmt.Printf("Error fetching languages: %v\n", err)
 		os.Exit(1)
