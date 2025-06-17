@@ -23,9 +23,9 @@ type Client struct {
 }
 
 // NewGitHubAppClient creates a new GitHub client authenticated as a GitHub App installation
-func NewGitHubAppClient(appID, installationID int64, privateKeyPEM []byte) (*Client, error) {
+func NewGitHubAppClient(ctx context.Context, appID, installationID int64, privateKeyPEM []byte) (*Client, error) {
 	// Create a new transport using the GitHub App authentication
-	itr, err := newGitHubAppTransport(appID, installationID, privateKeyPEM)
+	itr, err := newGitHubAppTransport(ctx, appID, installationID, privateKeyPEM)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +40,7 @@ func NewGitHubAppClient(appID, installationID int64, privateKeyPEM []byte) (*Cli
 }
 
 // newGitHubAppTransport creates a new http.RoundTripper that authenticates as a GitHub App installation
-func newGitHubAppTransport(appID, installationID int64, privateKeyPEM []byte) (http.RoundTripper, error) {
+func newGitHubAppTransport(ctx context.Context, appID, installationID int64, privateKeyPEM []byte) (http.RoundTripper, error) {
 	// Parse the private key
 	privateKey, err := jwt.ParseRSAPrivateKeyFromPEM(privateKeyPEM)
 	if err != nil {
@@ -71,7 +71,7 @@ func newGitHubAppTransport(appID, installationID int64, privateKeyPEM []byte) (h
 
 	// Get installation token
 	installToken, _, err := client.Apps.CreateInstallationToken(
-		context.Background(),
+		ctx,
 		installationID,
 		&github.InstallationTokenOptions{},
 	)
@@ -87,8 +87,8 @@ func newGitHubAppTransport(appID, installationID int64, privateKeyPEM []byte) (h
 	}, nil
 }
 
-func (c *Client) GetLanguages(owner string, name string) (*Languages, error) {
-	langs, _, err := c.GitHubClient.Repositories.ListLanguages(context.Background(), owner, name)
+func (c *Client) GetLanguages(ctx context.Context, owner string, name string) (*Languages, error) {
+	langs, _, err := c.GitHubClient.Repositories.ListLanguages(ctx, owner, name)
 	if err != nil {
 		return nil, err
 	}

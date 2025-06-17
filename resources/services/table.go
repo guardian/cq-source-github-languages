@@ -29,7 +29,7 @@ func contains(s []string, str string) bool {
 	return false
 }
 
-func fetchRepositories(ghClient *gh.Client) ([]*gh.Repository, error) {
+func fetchRepositories(ctx context.Context, ghClient *gh.Client) ([]*gh.Repository, error) {
 	opts := &gh.RepositoryListByOrgOptions{
 		ListOptions: gh.ListOptions{
 			PerPage: 100,
@@ -37,7 +37,7 @@ func fetchRepositories(ghClient *gh.Client) ([]*gh.Repository, error) {
 
 	var allRepos []*gh.Repository
 	for {
-		repos, resp, err := ghClient.Repositories.ListByOrg(context.Background(), "guardian", opts)
+		repos, resp, err := ghClient.Repositories.ListByOrg(ctx, "guardian", opts)
 		if err != nil {
 			return nil, err
 		}
@@ -67,20 +67,20 @@ func fetchLanguages(ctx context.Context, meta schema.ClientMeta, parent *schema.
 
 	// Initialize GitHub client with App authentication only
 	privateKeyBytes := []byte(c.Spec.PrivateKey)
-	gitHubClient, err := github.NewGitHubAppClient(c.Spec.AppID, c.Spec.InstallationID, privateKeyBytes)
+	gitHubClient, err := github.NewGitHubAppClient(ctx, c.Spec.AppID, c.Spec.InstallationID, privateKeyBytes)
 	if err != nil {
 		return fmt.Errorf("failed to create GitHub App client: %w", err)
 	}
 
 	// Use the official GitHub client for fetchRepositories
-	repos, err := fetchRepositories(gitHubClient.GitHubClient)
+	repos, err := fetchRepositories(ctx, gitHubClient.GitHubClient)
 	if err != nil {
 		return err
 	}
 
 	// Use our internal client wrapper for GetLanguages calls
 	for _, repo := range repos {
-		langs, err := gitHubClient.GetLanguages(*repo.Owner.Login, *repo.Name)
+		langs, err := gitHubClient.GetLanguages(ctx, *repo.Owner.Login, *repo.Name)
 		if err != nil {
 			return err
 		}
