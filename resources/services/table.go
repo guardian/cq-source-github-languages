@@ -65,9 +65,9 @@ func fetchLanguages(ctx context.Context, meta schema.ClientMeta, parent *schema.
 		return fmt.Errorf("failed to assert meta as *client.Client")
 	}
 
-	// Initialize GitHub client with App authentication only
-	privateKeyBytes := []byte(c.Spec.PrivateKey)
-	gitHubClient, err := github.NewGitHubAppClient(ctx, c.Spec.AppID, c.Spec.InstallationID, privateKeyBytes)
+	// Initialize GitHub client with App authentication
+	privateKeyBytes := []byte(c.PrivateKey())
+	gitHubClient, err := github.NewGitHubAppClient(ctx, c.AppID(), c.InstallationID(), privateKeyBytes)
 	if err != nil {
 		return fmt.Errorf("failed to create GitHub App client: %w", err)
 	}
