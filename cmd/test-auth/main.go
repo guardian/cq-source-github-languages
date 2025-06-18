@@ -6,10 +6,11 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
+	"github.com/guardian/cq-source-github-languages/client"
 	"github.com/guardian/cq-source-github-languages/internal/github"
+	"github.com/rs/zerolog"
 )
 
 // sanitizePrivateKey ensures the private key is properly formatted with newlines
@@ -87,55 +88,37 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Convert string IDs to int64
-	appID, err := strconv.ParseInt(*appIDStr, 10, 64)
-	if err != nil {
-		fmt.Printf("Error parsing app ID: %v\n", err)
-		os.Exit(1)
+	// Create spec with the new flattened structure
+	spec := &client.Spec{
+		Org:            *owner,
+		AppID:          *appIDStr,
+		InstallationID: *installIDStr,
 	}
 
-	installID, err := strconv.ParseInt(*installIDStr, 10, 64)
-	if err != nil {
-		fmt.Printf("Error parsing installation ID: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Determine which key to use - prefer direct key if provided
-	// Priority: --key flag > GITHUB_PRIVATE_KEY env > --key-path flag > GITHUB_PRIVATE_KEY_PATH env
-	var privateKey []byte
+	// Set private key based on priority
 	if *key != "" {
-		privateKey, err = sanitizePrivateKey(*key)
+		privateKey, err := sanitizePrivateKey(*key)
 		if err != nil {
 			fmt.Printf("Error processing private key: %v\n", err)
 			os.Exit(1)
 		}
+		spec.PrivateKey = string(privateKey)
 		fmt.Printf("Using private key provided directly (from %s)\n", getValueSource("GITHUB_PRIVATE_KEY", *key))
 	} else {
-		// Read private key file
-		keyData, err := os.ReadFile(*keyPath)
-		if err != nil {
-			fmt.Printf("Error reading private key file: %v\n", err)
-			os.Exit(1)
-		}
-		privateKey, err = sanitizePrivateKey(string(keyData))
-		if err != nil {
-			fmt.Printf("Error processing private key from file: %v\n", err)
-			os.Exit(1)
-		}
+		spec.PrivateKeyPath = *keyPath
 		fmt.Printf("Using private key from file: %s (from %s)\n", *keyPath, getValueSource("GITHUB_PRIVATE_KEY_PATH", *keyPath))
 	}
 
-	fmt.Println("Authenticating with GitHub App...")
-	fmt.Printf("App ID: %d\n", appID)
-	fmt.Printf("Installation ID: %d\n", installID)
+	fmt.Println("Creating client with new authentication structure...")
 
-	// Create a context for the API calls
+	// Create a context and logger
 	ctx := context.Background()
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
 
-	// Create GitHub client
-	client, err := github.NewGitHubAppClient(ctx, appID, installID, privateKey)
+	// Create client using the new structure
+	c, err := client.New(ctx, logger, spec)
 	if err != nil {
-		fmt.Printf("Error creating GitHub client: %v\n", err)
+		fmt.Printf("Error creating client: %v\n", err)
 		fmt.Println("\nTROUBLESHOOTING TIPS:")
 		fmt.Println("1. Ensure your private key is a valid PEM-encoded RSA private key")
 		fmt.Println("2. The key should start with '-----BEGIN RSA PRIVATE KEY-----' and end with '-----END RSA PRIVATE KEY-----'")
@@ -144,10 +127,22 @@ func main() {
 		os.Exit(1)
 	}
 
+	fmt.Printf("Client created successfully!\n")
+	fmt.Printf("App ID: %d\n", c.AppID)
+	fmt.Printf("Installation ID: %d\n", c.InstallationID)
+
+	// Create GitHub client directly for testing
+	privateKeyBytes := []byte(c.PrivateKey)
+	gitHubClient, err := github.NewGitHubAppClient(ctx, c.AppID, c.InstallationID, privateKeyBytes)
+	if err != nil {
+		fmt.Printf("Error creating GitHub client: %v\n", err)
+		os.Exit(1)
+	}
+
 	fmt.Printf("Fetching languages for %s/%s...\n", *owner, *repo)
 
 	// Test by fetching languages for a repository
-	langs, err := client.GetLanguages(ctx, *owner, *repo)
+	langs, err := gitHubClient.GetLanguages(ctx, *owner, *repo)
 	if err != nil {
 		fmt.Printf("Error fetching languages: %v\n", err)
 		os.Exit(1)

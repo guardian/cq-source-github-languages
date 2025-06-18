@@ -66,8 +66,8 @@ func fetchLanguages(ctx context.Context, meta schema.ClientMeta, parent *schema.
 	}
 
 	// Initialize GitHub client with App authentication
-	privateKeyBytes := []byte(c.PrivateKey())
-	gitHubClient, err := github.NewGitHubAppClient(ctx, c.AppID(), c.InstallationID(), privateKeyBytes)
+	privateKeyBytes := []byte(c.PrivateKey)
+	gitHubClient, err := github.NewGitHubAppClient(ctx, c.AppID, c.InstallationID, privateKeyBytes)
 	if err != nil {
 		return fmt.Errorf("failed to create GitHub App client: %w", err)
 	}
