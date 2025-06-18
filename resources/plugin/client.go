@@ -90,12 +90,3 @@ func getTables() schema.Tables {
 	}
 	return tables
 }
-
-// Plugin returns the plugin configuration
-func Plugin() *plugin.Plugin {
-	return plugin.NewPlugin(
-		"github-languages",
-		"v1.0.0",
-		Configure,
-	)
-}
