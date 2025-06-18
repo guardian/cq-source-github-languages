@@ -33,7 +33,6 @@ func New(ctx context.Context, logger zerolog.Logger, s *Spec) (Client, error) {
 	var appID, installationID int64
 	var privateKeyContent string
 
-	// Convert string app_id to int64
 	if s.AppID != "" {
 		var err error
 		appID, err = strconv.ParseInt(s.AppID, 10, 64)
@@ -42,7 +41,6 @@ func New(ctx context.Context, logger zerolog.Logger, s *Spec) (Client, error) {
 		}
 	}
 
-	// Convert string installation_id to int64
 	if s.InstallationID != "" {
 		var err error
 		installationID, err = strconv.ParseInt(s.InstallationID, 10, 64)
@@ -51,18 +49,16 @@ func New(ctx context.Context, logger zerolog.Logger, s *Spec) (Client, error) {
 		}
 	}
 
-	// Handle private key - prefer content over file path
-	if s.PrivateKey != "" {
-		privateKeyContent = s.PrivateKey
-	} else if s.PrivateKeyPath != "" {
+	if s.PrivateKeyPath != "" {
 		keyBytes, err := os.ReadFile(s.PrivateKeyPath)
 		if err != nil {
 			return Client{}, fmt.Errorf("failed to read private key from file %s: %w", s.PrivateKeyPath, err)
 		}
 		privateKeyContent = string(keyBytes)
+	} else if s.PrivateKey != "" {
+		privateKeyContent = s.PrivateKey
 	}
 
-	// Validate required parameters
 	if appID == 0 {
 		return Client{}, fmt.Errorf("github app id is required")
 	}
