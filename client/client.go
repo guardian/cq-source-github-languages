@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/rs/zerolog"
 )
@@ -67,6 +68,10 @@ func New(ctx context.Context, logger zerolog.Logger, s *Spec) (Client, error) {
 	}
 	if privateKeyContent == "" {
 		return Client{}, fmt.Errorf("github app private key is required")
+	}
+
+	if !strings.Contains(privateKeyContent, "-----BEGIN") || !strings.Contains(privateKeyContent, "-----END") {
+		return Client{}, fmt.Errorf("private key must be in PEM format")
 	}
 
 	return Client{
