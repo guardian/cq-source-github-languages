@@ -52,6 +52,10 @@ func Configure(ctx context.Context, logger zerolog.Logger, spec []byte, opts plu
 }
 
 func (c *Client) Sync(ctx context.Context, options plugin.SyncOptions, res chan<- message.SyncMessage) error {
+	if c.syncClient == nil {
+		return fmt.Errorf("sync client is not initialized")
+	}
+
 	tt, err := c.tables.FilterDfs(options.Tables, options.SkipTables, options.SkipDependentTables)
 	if err != nil {
 		return err
@@ -85,4 +89,13 @@ func getTables() schema.Tables {
 		schema.AddCqIDs(t)
 	}
 	return tables
+}
+
+// Plugin returns the plugin configuration
+func Plugin() *plugin.Plugin {
+	return plugin.NewPlugin(
+		"github-languages",
+		"v1.0.0",
+		Configure,
+	)
 }
