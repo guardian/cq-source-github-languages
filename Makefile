@@ -10,6 +10,10 @@ lint:
 build:
 	go build -o cq-source-github-languages .
 
+.PHONY: build-test-auth
+build-test-auth:
+	go build -o test-auth ./cmd/test-auth
+
 .PHONY: gen-docs
 gen-docs: build
 	rm -rf ./docs/tables/*

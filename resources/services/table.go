@@ -3,27 +3,20 @@ package services
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/cloudquery/plugin-sdk/v4/transformers"
 
 	"github.com/cloudquery/plugin-sdk/v4/schema"
 	gh "github.com/google/go-github/v57/github"
+	"github.com/guardian/cq-source-github-languages/client"
 	"github.com/guardian/cq-source-github-languages/internal/github"
 )
-
-type Languages struct {
-	// TODO find a way to share this with github.go
-	FullName  string
-	Name      string
-	Languages []string
-}
 
 func LanguagesTable() *schema.Table {
 	return &schema.Table{
 		Name:      "github_languages",
 		Resolver:  fetchLanguages,
-		Transform: transformers.TransformWithStruct(&Languages{}),
+		Transform: transformers.TransformWithStruct(&github.Languages{}),
 	}
 }
 
@@ -36,7 +29,7 @@ func contains(s []string, str string) bool {
 	return false
 }
 
-func fetchRepositories(ghClient *gh.Client) ([]*gh.Repository, error) {
+func fetchRepositories(ctx context.Context, ghClient *gh.Client, org string) ([]*gh.Repository, error) {
 	opts := &gh.RepositoryListByOrgOptions{
 		ListOptions: gh.ListOptions{
 			PerPage: 100,
@@ -44,7 +37,7 @@ func fetchRepositories(ghClient *gh.Client) ([]*gh.Repository, error) {
 
 	var allRepos []*gh.Repository
 	for {
-		repos, resp, err := ghClient.Repositories.ListByOrg(context.Background(), "guardian", opts)
+		repos, resp, err := ghClient.Repositories.ListByOrg(ctx, org, opts)
 		if err != nil {
 			return nil, err
 		}
@@ -67,22 +60,58 @@ func fetchRepositories(ghClient *gh.Client) ([]*gh.Repository, error) {
 }
 
 func fetchLanguages(ctx context.Context, meta schema.ClientMeta, parent *schema.Resource, res chan<- any) error {
-	// TODO authenticate via GitHub App
-	token := os.Getenv("GITHUB_ACCESS_TOKEN")
-	c := github.CustomClient(token)
-
-	repos, err := fetchRepositories(c.GitHubClient)
-	if err != nil {
-		return err
+	c, ok := meta.(*client.Client)
+	if !ok {
+		return fmt.Errorf("failed to assert meta as *client.Client")
 	}
 
-	for _, repo := range repos {
-		langs, err := c.GetLanguages(*repo.Owner.Login, *repo.Name)
-		if err != nil {
-			return err
+	logger := c.Logger()
+	logger.Info().Msg("starting language fetch process")
+
+	// Initialize GitHub client with App authentication
+	privateKeyBytes := []byte(c.PrivateKey)
+	gitHubClient, err := github.NewGitHubAppClient(ctx, c.AppID, c.InstallationID, privateKeyBytes)
+	if err != nil {
+		logger.Error().Err(err).Msg("failed to create GitHub App client")
+		return fmt.Errorf("failed to create GitHub App client: %w", err)
+	}
+
+	logger.Info().Str("org", c.Org()).Msg("fetching repositories")
+
+	// Use the official GitHub client for fetchRepositories
+	repos, err := fetchRepositories(ctx, gitHubClient.GitHubClient, c.Org())
+	if err != nil {
+		logger.Error().Err(err).Str("org", c.Org()).Msg("failed to fetch repositories")
+		return fmt.Errorf("failed to fetch repositories for org %s: %w", c.Org(), err)
+	}
+
+	logger.Info().Int("repo_count", len(repos)).Msg("fetched repositories, now getting languages")
+
+	// Use our internal client wrapper for GetLanguages calls
+	for i, repo := range repos {
+		if repo.Owner == nil || repo.Owner.Login == nil || repo.Name == nil {
+			logger.Warn().Int("repo_index", i).Msg("skipping repository with missing owner or name")
+			continue
 		}
+
+		langs, err := gitHubClient.GetLanguages(ctx, *repo.Owner.Login, *repo.Name)
+		if err != nil {
+			logger.Error().
+				Err(err).
+				Str("owner", *repo.Owner.Login).
+				Str("repo", *repo.Name).
+				Msg("failed to get languages for repository")
+			return fmt.Errorf("failed to get languages for %s/%s: %w", *repo.Owner.Login, *repo.Name, err)
+		}
+
+		logger.Debug().
+			Str("repo", langs.FullName).
+			Int("language_count", len(langs.Languages)).
+			Msg("fetched languages for repository")
 
 		res <- langs
 	}
+
+	logger.Info().Int("total_repos", len(repos)).Msg("completed language fetch process")
 	return nil
 }
