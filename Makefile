@@ -1,4 +1,4 @@
-.PHONY: test lint gen-docs build clean test-clean
+.PHONY: test test-clean lint gen-docs build clean
 
 # Run tests
 test:
@@ -15,7 +15,11 @@ lint:
 
 # Generate documentation
 gen-docs:
-	@go run main.go doc docs
+	build
+	rm -rf ./docs/tables/*
+	mkdir -p ./docs/tables
+	# Use cloudquery command from PATH to generate docs
+	cloudquery tables docs/spec.yml --output-dir . --format markdown
 
 # Build the plugin
 build:
