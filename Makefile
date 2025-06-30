@@ -1,7 +1,12 @@
-.PHONY: test lint gen-docs build clean
+.PHONY: test lint gen-docs build clean test-clean
 
 # Run tests
 test:
+	@go test -timeout 10m ./...
+
+# Run tests with cleared cache
+test-clean:
+	@go clean -testcache
 	@go test -timeout 10m ./...
 
 # Run linter
