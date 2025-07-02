@@ -1,6 +1,7 @@
 package services
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/google/go-github/v57/github"
@@ -57,9 +58,9 @@ func TestContains(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := contains(tt.slice, tt.str)
+			got := slices.Contains(tt.slice, tt.str)
 			if got != tt.want {
-				t.Errorf("contains() = %v, want %v", got, tt.want)
+				t.Errorf("slices.Contains() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -88,7 +89,7 @@ func TestFetchRepositoriesFiltering(t *testing.T) {
 	var filteredRepos []*github.Repository
 	for _, repo := range repos {
 		// Apply the same filtering logic as fetchRepositories
-		if !*repo.Archived && contains(repo.Topics, "production") {
+		if !*repo.Archived && slices.Contains(repo.Topics, "production") {
 			filteredRepos = append(filteredRepos, repo)
 		}
 	}

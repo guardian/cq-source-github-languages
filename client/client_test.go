@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/rs/zerolog"
@@ -97,11 +98,11 @@ func TestNew(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			client, err := New(ctx, logger, tt.spec)
-			
+
 			if tt.wantErr {
 				if err == nil {
 					t.Errorf("New() expected error but got none")
-				} else if tt.errMsg != "" && !contains(err.Error(), tt.errMsg) {
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
 					t.Errorf("New() error = %v, expected to contain %v", err, tt.errMsg)
 				}
 			} else {
@@ -127,7 +128,7 @@ func TestNewWithPrivateKeyPath(t *testing.T) {
 	tmpDir := t.TempDir()
 	keyPath := filepath.Join(tmpDir, "test-key.pem")
 	keyContent := "-----BEGIN RSA PRIVATE KEY-----\ntest-content\n-----END RSA PRIVATE KEY-----"
-	
+
 	err := os.WriteFile(keyPath, []byte(keyContent), 0600)
 	if err != nil {
 		t.Fatalf("Failed to create test key file: %v", err)
@@ -165,19 +166,4 @@ func TestNewWithInvalidKeyPath(t *testing.T) {
 	if err == nil {
 		t.Errorf("New() expected error for invalid key path but got none")
 	}
-}
-
-// Helper function for substring checking
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(substr) == 0 || 
-		(len(s) > len(substr) && findSubstring(s, substr)))
-}
-
-func findSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }
