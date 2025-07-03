@@ -31,7 +31,7 @@ jobs:
       - name: Test
         run: make test
       - name: Setup Cloudquery CLI
-        uses: cloudquery/setup-cloudquery@1c200ac24a1cd86340a19e655efe8284f09b169f # v4.1.6
+        uses: cloudquery/setup-cloudquery@98c282e10f38b7500ea3558c6624ebf333b9cebd # v4.1.7
         with:
           version: 'v6.20.5'
       - name: gen
