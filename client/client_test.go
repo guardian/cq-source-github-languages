@@ -10,8 +10,19 @@ import (
 	"github.com/rs/zerolog"
 )
 
+const (
+	testPEMKey = "-----BEGIN RSA PRIVATE KEY-----\ntest-content\n-----END RSA PRIVATE KEY-----"
+	testOrg    = "test-org"
+	testAppID  = "12345"
+	testInstID = "67890"
+)
+
+func testLogger(t *testing.T) zerolog.Logger {
+	return zerolog.New(zerolog.NewTestWriter(t))
+}
+
 func TestNew(t *testing.T) {
-	logger := zerolog.New(os.Stdout)
+	logger := testLogger(t)
 	ctx := context.Background()
 
 	tests := []struct {
@@ -29,7 +40,7 @@ func TestNew(t *testing.T) {
 		{
 			name: "missing app_id",
 			spec: &Spec{
-				Org: "test-org",
+				Org: testOrg,
 			},
 			wantErr: true,
 			errMsg:  "github app id is required",
@@ -37,7 +48,7 @@ func TestNew(t *testing.T) {
 		{
 			name: "invalid app_id",
 			spec: &Spec{
-				Org:   "test-org",
+				Org:   testOrg,
 				AppID: "not-a-number",
 			},
 			wantErr: true,
@@ -46,8 +57,8 @@ func TestNew(t *testing.T) {
 		{
 			name: "missing installation_id",
 			spec: &Spec{
-				Org:   "test-org",
-				AppID: "12345",
+				Org:   testOrg,
+				AppID: testAppID,
 			},
 			wantErr: true,
 			errMsg:  "github app installation id is required",
@@ -55,8 +66,8 @@ func TestNew(t *testing.T) {
 		{
 			name: "invalid installation_id",
 			spec: &Spec{
-				Org:            "test-org",
-				AppID:          "12345",
+				Org:            testOrg,
+				AppID:          testAppID,
 				InstallationID: "not-a-number",
 			},
 			wantErr: true,
@@ -65,9 +76,9 @@ func TestNew(t *testing.T) {
 		{
 			name: "missing private key",
 			spec: &Spec{
-				Org:            "test-org",
-				AppID:          "12345",
-				InstallationID: "67890",
+				Org:            testOrg,
+				AppID:          testAppID,
+				InstallationID: testInstID,
 			},
 			wantErr: true,
 			errMsg:  "github app private key is required",
@@ -75,9 +86,9 @@ func TestNew(t *testing.T) {
 		{
 			name: "invalid private key format",
 			spec: &Spec{
-				Org:            "test-org",
-				AppID:          "12345",
-				InstallationID: "67890",
+				Org:            testOrg,
+				AppID:          testAppID,
+				InstallationID: testInstID,
 				PrivateKey:     "invalid-key-content",
 			},
 			wantErr: true,
@@ -86,12 +97,32 @@ func TestNew(t *testing.T) {
 		{
 			name: "valid config with private_key",
 			spec: &Spec{
-				Org:            "test-org",
-				AppID:          "12345",
-				InstallationID: "67890",
-				PrivateKey:     "-----BEGIN RSA PRIVATE KEY-----\ntest-content\n-----END RSA PRIVATE KEY-----",
+				Org:            testOrg,
+				AppID:          testAppID,
+				InstallationID: testInstID,
+				PrivateKey:     testPEMKey,
 			},
 			wantErr: false,
+		},
+		{
+			name: "whitespace in app_id",
+			spec: &Spec{
+				Org:            testOrg,
+				AppID:          "  12345  ",
+				InstallationID: testInstID,
+				PrivateKey:     testPEMKey,
+			},
+			wantErr: false, // Should be trimmed and work
+		},
+		{
+			name: "file interpolation syntax warning",
+			spec: &Spec{
+				Org:            testOrg,
+				AppID:          "${file:app-id.txt}",
+				InstallationID: testInstID,
+				PrivateKey:     testPEMKey,
+			},
+			wantErr: true, // Should fail parsing but log warning
 		},
 	}
 
@@ -121,13 +152,13 @@ func TestNew(t *testing.T) {
 }
 
 func TestNewWithPrivateKeyPath(t *testing.T) {
-	logger := zerolog.New(os.Stdout)
+	logger := testLogger(t)
 	ctx := context.Background()
 
 	// Create temporary key file
 	tmpDir := t.TempDir()
 	keyPath := filepath.Join(tmpDir, "test-key.pem")
-	keyContent := "-----BEGIN RSA PRIVATE KEY-----\ntest-content\n-----END RSA PRIVATE KEY-----"
+	keyContent := testPEMKey
 
 	err := os.WriteFile(keyPath, []byte(keyContent), 0600)
 	if err != nil {
@@ -135,9 +166,9 @@ func TestNewWithPrivateKeyPath(t *testing.T) {
 	}
 
 	spec := &Spec{
-		Org:            "test-org",
-		AppID:          "12345",
-		InstallationID: "67890",
+		Org:            testOrg,
+		AppID:          testAppID,
+		InstallationID: testInstID,
 		PrivateKeyPath: keyPath,
 	}
 
@@ -152,18 +183,49 @@ func TestNewWithPrivateKeyPath(t *testing.T) {
 }
 
 func TestNewWithInvalidKeyPath(t *testing.T) {
-	logger := zerolog.New(os.Stdout)
+	logger := testLogger(t)
 	ctx := context.Background()
 
 	spec := &Spec{
-		Org:            "test-org",
-		AppID:          "12345",
-		InstallationID: "67890",
+		Org:            testOrg,
+		AppID:          testAppID,
+		InstallationID: testInstID,
 		PrivateKeyPath: "/nonexistent/path/key.pem",
 	}
 
 	_, err := New(ctx, logger, spec)
 	if err == nil {
 		t.Errorf("New() expected error for invalid key path but got none")
+	}
+}
+
+func TestPrivateKeyPrecedence(t *testing.T) {
+	logger := testLogger(t)
+
+	// Create temp file
+	tmpDir := t.TempDir()
+	keyPath := filepath.Join(tmpDir, "key.pem")
+	fileContent := "-----BEGIN RSA PRIVATE KEY-----\nfile-content\n-----END RSA PRIVATE KEY-----"
+
+	if err := os.WriteFile(keyPath, []byte(fileContent), 0600); err != nil {
+		t.Fatalf("Failed to create key file: %v", err)
+	}
+
+	// Test that PrivateKeyPath takes precedence over PrivateKey
+	spec := &Spec{
+		Org:            testOrg,
+		AppID:          testAppID,
+		InstallationID: testInstID,
+		PrivateKey:     testPEMKey,
+		PrivateKeyPath: keyPath,
+	}
+
+	client, err := New(context.Background(), logger, spec)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	if client.PrivateKey != fileContent {
+		t.Errorf("Expected file content to take precedence, got %v", client.PrivateKey)
 	}
 }
