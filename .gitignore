@@ -33,6 +33,3 @@
 # OS specific files
 .DS_Store
 Thumbs.db
-
-# test module
-test-auth

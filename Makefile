@@ -1,26 +1,29 @@
-.PHONY: test
-test:
-	go test -timeout 10m ./...
+.PHONY: test test-clean lint build gen-docs clean
 
-.PHONY: lint
+# Run tests
+test:
+	@go test -timeout 10m ./...
+
+# Run tests with cleared cache
+test-clean:
+	@go clean -testcache
+	@go test -timeout 10m ./...
+
+# Run linter
 lint:
 	@golangci-lint run --timeout 10m
 
-.PHONY: build
+# Build the plugin
 build:
-	go build -o cq-source-github-languages .
+	@go build -o cq-source-github-languages .
 
-.PHONY: build-test-auth
-build-test-auth:
-	go build -o test-auth ./cmd/test-auth
-
-.PHONY: gen-docs
+# Generate documentation
 gen-docs: build
 	rm -rf ./docs/tables/*
 	mkdir -p ./docs/tables
 	# Use cloudquery command from PATH to generate docs
 	cloudquery tables docs/spec.yml --output-dir . --format markdown
 
-# All gen targets
-.PHONY: gen
-gen: gen-docs
+# Clean build artifacts
+clean:
+	@rm -f cq-source-github-languages
