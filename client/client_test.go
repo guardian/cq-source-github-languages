@@ -14,8 +14,8 @@ import (
 const (
 	testPEMKey = "-----BEGIN RSA PRIVATE KEY-----\ntest-content\n-----END RSA PRIVATE KEY-----"
 	testOrg    = "test-org"
-	testAppID  = "12345"
-	testInstID = "67890"
+	testAppID  = "12345" // String - matches JSON input
+	testInstID = "67890" // String - matches JSON input
 )
 
 func testLogger(t *testing.T) zerolog.Logger {
