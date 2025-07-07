@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -227,5 +228,198 @@ func TestPrivateKeyPrecedence(t *testing.T) {
 
 	if client.PrivateKey != fileContent {
 		t.Errorf("Expected file content to take precedence, got %v", client.PrivateKey)
+	}
+}
+func TestEdgeCases(t *testing.T) {
+	logger := testLogger(t)
+	ctx := context.Background()
+
+	tests := []struct {
+		name    string
+		spec    *Spec
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "whitespace in installation_id",
+			spec: &Spec{
+				Org:            testOrg,
+				AppID:          testAppID,
+				InstallationID: "  67890  ",
+				PrivateKey:     testPEMKey,
+			},
+			wantErr: false, // Should be trimmed and work
+		},
+		{
+			name: "file interpolation syntax in installation_id",
+			spec: &Spec{
+				Org:            testOrg,
+				AppID:          testAppID,
+				InstallationID: "${file:install-id.txt}",
+				PrivateKey:     testPEMKey,
+			},
+			wantErr: true, // Should fail parsing but log warning
+		},
+		{
+			name: "private key with only BEGIN marker",
+			spec: &Spec{
+				Org:            testOrg,
+				AppID:          testAppID,
+				InstallationID: testInstID,
+				PrivateKey:     "-----BEGIN RSA PRIVATE KEY-----\ntest-content",
+			},
+			wantErr: true,
+			errMsg:  "private key must be in PEM format",
+		},
+		{
+			name: "private key with only END marker",
+			spec: &Spec{
+				Org:            testOrg,
+				AppID:          testAppID,
+				InstallationID: testInstID,
+				PrivateKey:     "test-content\n-----END RSA PRIVATE KEY-----",
+			},
+			wantErr: true,
+			errMsg:  "private key must be in PEM format",
+		},
+		{
+			name: "private key with whitespace around PEM",
+			spec: &Spec{
+				Org:            testOrg,
+				AppID:          testAppID,
+				InstallationID: testInstID,
+				PrivateKey:     "  " + testPEMKey + "  ",
+			},
+			wantErr: false, // Should be trimmed and work
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client, err := New(ctx, logger, tt.spec)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("New() expected error but got none")
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("New() error = %v, expected to contain %v", err, tt.errMsg)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("New() unexpected error = %v", err)
+				}
+				if client.ID() != "github-languages" {
+					t.Errorf("Client.ID() = %v, want %v", client.ID(), "github-languages")
+				}
+				if client.Org() != tt.spec.Org {
+					t.Errorf("Client.Org() = %v, want %v", client.Org(), tt.spec.Org)
+				}
+			}
+		})
+	}
+}
+
+func TestNewWithEmptyPrivateKeyFile(t *testing.T) {
+	logger := testLogger(t)
+	ctx := context.Background()
+
+	// Create temporary empty key file
+	tmpDir := t.TempDir()
+	keyPath := filepath.Join(tmpDir, "empty-key.pem")
+
+	err := os.WriteFile(keyPath, []byte(""), 0600)
+	if err != nil {
+		t.Fatalf("Failed to create empty key file: %v", err)
+	}
+
+	spec := &Spec{
+		Org:            testOrg,
+		AppID:          testAppID,
+		InstallationID: testInstID,
+		PrivateKeyPath: keyPath,
+	}
+
+	_, err = New(ctx, logger, spec)
+	if err == nil {
+		t.Errorf("New() expected error for empty key file but got none")
+	}
+	if !strings.Contains(err.Error(), "github app private key is required") {
+		t.Errorf("New() error = %v, expected to contain 'github app private key is required'", err)
+	}
+}
+
+func TestNewWithWhitespaceOnlyPrivateKeyFile(t *testing.T) {
+	logger := testLogger(t)
+	ctx := context.Background()
+
+	// Create temporary key file with only whitespace
+	tmpDir := t.TempDir()
+	keyPath := filepath.Join(tmpDir, "whitespace-key.pem")
+
+	err := os.WriteFile(keyPath, []byte("   \n\t  \n  "), 0600)
+	if err != nil {
+		t.Fatalf("Failed to create whitespace key file: %v", err)
+	}
+
+	spec := &Spec{
+		Org:            testOrg,
+		AppID:          testAppID,
+		InstallationID: testInstID,
+		PrivateKeyPath: keyPath,
+	}
+
+	_, err = New(ctx, logger, spec)
+	if err == nil {
+		t.Errorf("New() expected error for whitespace-only key file but got none")
+	}
+	if !strings.Contains(err.Error(), "github app private key is required") {
+		t.Errorf("New() error = %v, expected to contain 'github app private key is required'", err)
+	}
+}
+
+func TestClientMethods(t *testing.T) {
+	logger := testLogger(t)
+	ctx := context.Background()
+
+	spec := &Spec{
+		Org:            testOrg,
+		AppID:          testAppID,
+		InstallationID: testInstID,
+		PrivateKey:     testPEMKey,
+	}
+
+	client, err := New(ctx, logger, spec)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	// Test ID method
+	if got := client.ID(); got != "github-languages" {
+		t.Errorf("Client.ID() = %v, want %v", got, "github-languages")
+	}
+
+	// Test Logger method
+	if logger := client.Logger(); logger == nil {
+		t.Errorf("Client.Logger() returned nil")
+	}
+
+	// Test Org method
+	if got := client.Org(); got != testOrg {
+		t.Errorf("Client.Org() = %v, want %v", got, testOrg)
+	}
+
+	// Test that parsed values are correct
+	expectedAppID, _ := strconv.ParseInt(testAppID, 10, 64)
+	if client.AppID != expectedAppID {
+		t.Errorf("Client.AppID = %v, want %v", client.AppID, expectedAppID)
+	}
+
+	expectedInstID, _ := strconv.ParseInt(testInstID, 10, 64)
+	if client.InstallationID != expectedInstID {
+		t.Errorf("Client.InstallationID = %v, want %v", client.InstallationID, expectedInstID)
+	}
+
+	if client.PrivateKey != testPEMKey {
+		t.Errorf("Client.PrivateKey = %v, want %v", client.PrivateKey, testPEMKey)
 	}
 }
