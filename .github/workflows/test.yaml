@@ -34,9 +34,9 @@ jobs:
         uses: cloudquery/setup-cloudquery@98c282e10f38b7500ea3558c6624ebf333b9cebd # v4.1.7
         with:
           version: 'v6.20.5'
-      - name: gen
+      - name: Generate docs
         if: github.event_name == 'pull_request'
-        run: make gen
+        run: make gen-docs
       - name: Fail if generation updated files
         if: github.event_name == 'pull_request'
-        run: test "$(git status -s | wc -l)" -eq 0 || (git status -s; echo "Generated docs are out of date. Run 'make gen' and commit again" && exit 1)
+        run: test "$(git status -s | wc -l)" -eq 0 || (git status -s; echo "Generated docs are out of date. Run 'make gen-docs' and commit again" && exit 1)
