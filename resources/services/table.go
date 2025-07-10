@@ -29,6 +29,17 @@ func contains(s []string, str string) bool {
 	return false
 }
 
+func filterForValidRepos(repos []*gh.Repository) []*gh.Repository {
+	var validRepos []*gh.Repository
+	for _, repo := range repos {
+		// we are filtering here to only include repos we care about
+		if repo.Archived != nil && !*repo.Archived && contains(repo.Topics, "production") {
+			validRepos = append(validRepos, repo)
+		}
+	}
+	return validRepos
+}
+
 func fetchRepositories(ctx context.Context, ghClient *gh.Client, org string) ([]*gh.Repository, error) {
 	opts := &gh.RepositoryListByOrgOptions{
 		ListOptions: gh.ListOptions{
@@ -42,13 +53,7 @@ func fetchRepositories(ctx context.Context, ghClient *gh.Client, org string) ([]
 			return nil, err
 		}
 
-		for _, repo := range repos {
-			//we are filtering here to only include repos we care about for OKR purposes.
-			//the filters can be removed after we are sure we won't hit the rate limit
-			if !*repo.Archived && contains(repo.Topics, "production") {
-				allRepos = append(allRepos, repo)
-			}
-		}
+		allRepos = append(allRepos, filterForValidRepos(repos)...)
 
 		fmt.Println("Counted ", len(allRepos), " repos so far")
 		if resp.NextPage == 0 {
