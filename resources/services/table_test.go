@@ -66,36 +66,43 @@ func TestContains(t *testing.T) {
 	}
 }
 
-func TestFetchRepositoriesFiltering(t *testing.T) {
-	// Test the filtering logic with mock data
-	archived := true
-	notArchived := false
-
-	repos := []*github.Repository{
+func TestFilterForValidRepos(t *testing.T) {
+	tests := []struct {
+		name     string
+		repos    []*github.Repository
+		expected int
+	}{
 		{
-			Archived: &archived,
-			Topics:   []string{"production", "service"},
+			name: "filters archived repos",
+			repos: []*github.Repository{
+				{Archived: &[]bool{true}[0], Topics: []string{"production"}},
+				{Archived: &[]bool{false}[0], Topics: []string{"production"}},
+			},
+			expected: 1,
 		},
 		{
-			Archived: &notArchived,
-			Topics:   []string{"production", "service"},
+			name: "filters repos without production topic",
+			repos: []*github.Repository{
+				{Archived: &[]bool{false}[0], Topics: []string{"experimental"}},
+				{Archived: &[]bool{false}[0], Topics: []string{"production"}},
+			},
+			expected: 1,
 		},
 		{
-			Archived: &notArchived,
-			Topics:   []string{"experimental"},
+			name: "handles nil archived field",
+			repos: []*github.Repository{
+				{Archived: nil, Topics: []string{"production"}}, // This might cause a panic
+			},
+			expected: 0,
 		},
 	}
 
-	var filteredRepos []*github.Repository
-	for _, repo := range repos {
-		// Apply the same filtering logic as fetchRepositories
-		if !*repo.Archived && slices.Contains(repo.Topics, "production") {
-			filteredRepos = append(filteredRepos, repo)
-		}
-	}
-
-	expectedCount := 1 // Only the second repo should pass the filter
-	if len(filteredRepos) != expectedCount {
-		t.Errorf("Filtered repos count = %v, want %v", len(filteredRepos), expectedCount)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := filterForValidRepos(tt.repos)
+			if len(result) != tt.expected {
+				t.Errorf("filterForValidRepos() = %d repos, want %d", len(result), tt.expected)
+			}
+		})
 	}
 }
