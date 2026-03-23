@@ -3,7 +3,7 @@
 [![test](https://github.com/guardian/cq-source-github-languages/actions/workflows/test.yaml/badge.svg)](https://github.com/guardian/cq-source-github-languages/actions/workflows/test.yaml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/guardian/cq-source-github-languages)](https://goreportcard.com/report/github.com/guardian/cq-source-github-languages)
 
-A github-languages source plugin for CloudQuery that loads data from github-languages to any database, data warehouse or data lake supported by [CloudQuery](https://www.cloudquery.io/), such as PostgreSQL, BigQuery, Athena, and many more.
+A github-languages source plugin for CloudQuery that loads data from github-languages to any database, data warehouse or data lake supported by [CloudQuery](https://www.cloudquery.io/), such as PostgreSQL, BigQuery, Athena and many more.
 
 ## Links
 
