@@ -6,7 +6,7 @@ require (
 	github.com/cloudquery/plugin-sdk/v4 v4.94.3
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/rs/zerolog v1.35.0
-	golang.org/x/oauth2 v0.35.0
+	golang.org/x/oauth2 v0.36.0
 )
 
 require (
