@@ -31,7 +31,7 @@ jobs:
       - name: Test
         run: make test
       - name: Setup Cloudquery CLI
-        uses: cloudquery/setup-cloudquery@dc5dc9660624f78c1294417b3b18f4b71dad0f52 # v4.1.11
+        uses: cloudquery/setup-cloudquery@b7f7ea62cfec9774ad44a0d9307d0f6c5573bcb6 # v5.0.2
         with:
           version: 'v6.20.5'
       - name: Generate docs
