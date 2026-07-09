@@ -9,8 +9,22 @@ updates:
     directory: "/"
     schedule:
       interval: "monthly"
+    groups:
+      nonbreaking-golang:
+        patterns:
+          - '*'
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: 'github-actions'
     directory: '/'
     schedule:
       interval: 'monthly'
+    groups:
+      nonbreaking-actions:
+        patterns:
+          - '*'
+        update-types:
+          - minor
+          - patch
