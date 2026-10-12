@@ -136,8 +136,22 @@ func newGitHubAppTransport(ctx context.Context, appID, installationID int64, pri
 	}, nil
 }
 
+func (c *Client) listLanguagesWithRetry(ctx context.Context, owner string, name string) (map[string]int, error) {
+	var err error
+	for range 3 {
+		langs, r, err := c.GitHubClient.Repositories.ListLanguages(ctx, owner, name)
+		if err == nil {
+			return langs, nil
+		}
+		if r.StatusCode < 500 {
+			// not server error, so not much point retrying
+			return nil, err
+		}
+	}
+	return nil, err
+}
 func (c *Client) GetLanguages(ctx context.Context, owner string, name string) (*Languages, error) {
-	langs, _, err := c.GitHubClient.Repositories.ListLanguages(ctx, owner, name)
+	langs, err := c.listLanguagesWithRetry(ctx, owner, name)
 	if err != nil {
 		return nil, err
 	}
@@ -149,6 +163,20 @@ func (c *Client) GetLanguages(ctx context.Context, owner string, name string) (*
 	return l, nil
 }
 
+func (c *Client) fetchRepositoriesWithRetry(ctx context.Context, org string, opts *github.RepositoryListByOrgOptions) ([]*github.Repository, *github.Response, error) {
+	var err error
+	for range 3 {
+		repos, r, err := c.GitHubClient.Repositories.ListByOrg(ctx, org, opts)
+		if err == nil {
+			return repos, r, nil
+		}
+		if r.StatusCode < 500 {
+			// not server error, so not much point retrying
+			return nil, nil, err
+		}
+	}
+	return nil, nil, err
+}
 func (c *Client) FetchRepositories(ctx context.Context, org string, repoFilter func([]*github.Repository) ([]*github.Repository)) ([]*github.Repository, error) {
 	opts := &github.RepositoryListByOrgOptions{
 		ListOptions: github.ListOptions{
@@ -157,7 +185,7 @@ func (c *Client) FetchRepositories(ctx context.Context, org string, repoFilter f
 
 	var allRepos []*github.Repository
 	for {
-		repos, resp, err := c.GitHubClient.Repositories.ListByOrg(ctx, org, opts)
+		repos, resp, err := c.fetchRepositoriesWithRetry(ctx, org, opts)
 		if err != nil {
 			return nil, err
 		}
