@@ -40,30 +40,6 @@ func filterForValidRepos(repos []*gh.Repository) []*gh.Repository {
 	return validRepos
 }
 
-func fetchRepositories(ctx context.Context, ghClient *gh.Client, org string) ([]*gh.Repository, error) {
-	opts := &gh.RepositoryListByOrgOptions{
-		ListOptions: gh.ListOptions{
-			PerPage: 100,
-		}}
-
-	var allRepos []*gh.Repository
-	for {
-		repos, resp, err := ghClient.Repositories.ListByOrg(ctx, org, opts)
-		if err != nil {
-			return nil, err
-		}
-
-		allRepos = append(allRepos, filterForValidRepos(repos)...)
-
-		fmt.Println("Counted ", len(allRepos), " repos so far")
-		if resp.NextPage == 0 {
-			break
-		}
-		opts.Page = resp.NextPage
-	}
-	return allRepos, nil
-}
-
 func fetchLanguages(ctx context.Context, meta schema.ClientMeta, parent *schema.Resource, res chan<- any) error {
 	c, ok := meta.(*client.Client)
 	if !ok {
@@ -84,7 +60,7 @@ func fetchLanguages(ctx context.Context, meta schema.ClientMeta, parent *schema.
 	logger.Info().Str("org", c.Org()).Msg("fetching repositories")
 
 	// Use the official GitHub client for fetchRepositories
-	repos, err := fetchRepositories(ctx, gitHubClient.GitHubClient, c.Org())
+	repos, err := gitHubClient.FetchRepositories(ctx, c.Org(), filterForValidRepos)
 	if err != nil {
 		logger.Error().Err(err).Str("org", c.Org()).Msg("failed to fetch repositories")
 		return fmt.Errorf("failed to fetch repositories for org %s: %w", c.Org(), err)

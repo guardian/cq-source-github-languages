@@ -147,5 +147,28 @@ func (c *Client) GetLanguages(ctx context.Context, owner string, name string) (*
 		Languages: maps.Keys(langs),
 	}
 	return l, nil
+}
 
+func (c *Client) FetchRepositories(ctx context.Context, org string, repoFilter func([]*github.Repository) ([]*github.Repository)) ([]*github.Repository, error) {
+	opts := &github.RepositoryListByOrgOptions{
+		ListOptions: github.ListOptions{
+			PerPage: 100,
+		}}
+
+	var allRepos []*github.Repository
+	for {
+		repos, resp, err := c.GitHubClient.Repositories.ListByOrg(ctx, org, opts)
+		if err != nil {
+			return nil, err
+		}
+
+		allRepos = append(allRepos, repoFilter(repos)...)
+
+		fmt.Println("Counted ", len(allRepos), " repos so far")
+		if resp.NextPage == 0 {
+			break
+		}
+		opts.Page = resp.NextPage
+	}
+	return allRepos, nil
 }
