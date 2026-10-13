@@ -3,6 +3,7 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -303,6 +304,27 @@ func TestClient_FetchRepositoriesGivesUpAfterRetries(t *testing.T) {
 	}
 	if *calls != 3 {
 		t.Errorf("calls = %d, want 3", *calls)
+	}
+}
+
+func TestWithRetry_StopsWhenContextCancelled(t *testing.T) {
+	oldDelay := retryDelay
+	retryDelay = time.Minute
+	t.Cleanup(func() { retryDelay = oldDelay })
+
+	ctx, cancel := context.WithCancel(context.Background())
+	calls := 0
+	_, _, err := withRetry(ctx, func() (int, *github.Response, error) {
+		calls++
+		cancel()
+		return 0, &github.Response{Response: &http.Response{StatusCode: http.StatusInternalServerError}}, errors.New("boom")
+	})
+
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("error = %v, want context.Canceled", err)
+	}
+	if calls != 1 {
+		t.Errorf("calls = %d, want 1", calls)
 	}
 }
 

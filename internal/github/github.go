@@ -138,32 +138,27 @@ func newGitHubAppTransport(ctx context.Context, appID, installationID int64, pri
 
 var retryDelay = 5 * time.Second
 
-func (c *Client) listLanguagesWithRetry(ctx context.Context, owner string, name string) (map[string]int, error) {
-	var err error
-	for attempt := 0; attempt < 3; attempt++ {
-		var langs map[string]int
-		var r *github.Response
-		langs, r, err = c.GitHubClient.Repositories.ListLanguages(ctx, owner, name)
-		if err == nil {
-			return langs, nil
-		}
-		if r != nil && r.StatusCode < 500 {
-			// not server error, so not much point retrying
-			return nil, err
-		}
-		if attempt == 2 {
-			break
+const maxAttempts = 3
+
+func withRetry[T any](ctx context.Context, fn func() (T, *github.Response, error)) (T, *github.Response, error) {
+	for attempt := 1; ; attempt++ {
+		v, r, err := fn()
+		// 4xx errors are presumably our fault, so not worth retrying
+		if err == nil || (r != nil && r.StatusCode < 500) || attempt >= maxAttempts {
+			return v, r, err
 		}
 		select {
-		case <- ctx.Done():
-			return nil, ctx.Err()
-		case <- time.After(retryDelay):
+		case <-ctx.Done():
+			return v, r, ctx.Err()
+		case <-time.After(retryDelay):
 		}
 	}
-	return nil, err
 }
+
 func (c *Client) GetLanguages(ctx context.Context, owner string, name string) (*Languages, error) {
-	langs, err := c.listLanguagesWithRetry(ctx, owner, name)
+	langs, _, err := withRetry(ctx, func() (map[string]int, *github.Response, error) {
+		return c.GitHubClient.Repositories.ListLanguages(ctx, owner, name)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -175,31 +170,7 @@ func (c *Client) GetLanguages(ctx context.Context, owner string, name string) (*
 	return l, nil
 }
 
-func (c *Client) fetchRepositoriesWithRetry(ctx context.Context, org string, opts *github.RepositoryListByOrgOptions) ([]*github.Repository, *github.Response, error) {
-	var err error
-	for attempt := 0; attempt < 3; attempt++ {
-		var repos []*github.Repository
-		var r *github.Response
-		repos, r, err = c.GitHubClient.Repositories.ListByOrg(ctx, org, opts)
-		if err == nil {
-			return repos, r, nil
-		}
-		if r != nil && r.StatusCode < 500 {
-			// not server error, so not much point retrying
-			return nil, nil, err
-		}
-		if attempt == 2 {
-			break
-		}
-		select {
-		case <- ctx.Done():
-			return nil, nil, ctx.Err()
-		case <- time.After(retryDelay):
-		}
-	}
-	return nil, nil, err
-}
-func (c *Client) FetchRepositories(ctx context.Context, org string, repoFilter func([]*github.Repository) ([]*github.Repository)) ([]*github.Repository, error) {
+func (c *Client) FetchRepositories(ctx context.Context, org string, repoFilter func([]*github.Repository) []*github.Repository) ([]*github.Repository, error) {
 	opts := &github.RepositoryListByOrgOptions{
 		ListOptions: github.ListOptions{
 			PerPage: 100,
@@ -207,7 +178,10 @@ func (c *Client) FetchRepositories(ctx context.Context, org string, repoFilter f
 
 	var allRepos []*github.Repository
 	for {
-		repos, resp, err := c.fetchRepositoriesWithRetry(ctx, org, opts)
+		repos, resp, err := withRetry(ctx, func() ([]*github.Repository, *github.Response, error) {
+			return c.GitHubClient.Repositories.ListByOrg(ctx, org, opts)
+		})
+
 		if err != nil {
 			return nil, err
 		}
