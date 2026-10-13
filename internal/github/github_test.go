@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-github/v57/github"
 )
@@ -224,6 +225,84 @@ func TestClient_FetchRepositoriesPagination(t *testing.T) {
 
 	if len(result) != 2 || result[0].GetName() != "repo1" || result[1].GetName() != "repo2" {
 		t.Errorf("FetchRepositories() = %v, want repo1 and repo2", result)
+	}
+}
+
+func newRetryTestClient(t *testing.T, failures int, okBody string) (*Client, *int) {
+	t.Helper()
+	oldDelay := retryDelay
+	retryDelay = time.Millisecond
+	t.Cleanup(func() { retryDelay = oldDelay })
+
+	calls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		w.Header().Set("Content-Type", "application/json")
+		if calls <= failures {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"message": "Server Error"}`))
+			return
+		}
+		_, _ = w.Write([]byte(okBody))
+	}))
+	t.Cleanup(server.Close)
+
+	githubClient := github.NewClient(&http.Client{})
+	githubClient.BaseURL, _ = url.Parse(server.URL + "/")
+	return &Client{GitHubClient: githubClient}, &calls
+}
+
+func TestClient_GetLanguagesRetriesOnServerError(t *testing.T) {
+	client, calls := newRetryTestClient(t, 2, `{"Go": 1}`)
+
+	result, err := client.GetLanguages(context.Background(), "testowner", "testrepo")
+	if err != nil {
+		t.Fatalf("GetLanguages() error = %v", err)
+	}
+	if *calls != 3 {
+		t.Errorf("calls = %d, want 3", *calls)
+	}
+	if len(result.Languages) != 1 || result.Languages[0] != "Go" {
+		t.Errorf("Languages = %v, want [Go]", result.Languages)
+	}
+}
+
+func TestClient_GetLanguagesGivesUpAfterRetries(t *testing.T) {
+	client, calls := newRetryTestClient(t, 100, `{}`)
+
+	_, err := client.GetLanguages(context.Background(), "testowner", "testrepo")
+	if err == nil {
+		t.Error("GetLanguages() expected error but got none")
+	}
+	if *calls != 3 {
+		t.Errorf("calls = %d, want 3", *calls)
+	}
+}
+
+func TestClient_FetchRepositoriesRetriesOnServerError(t *testing.T) {
+	client, calls := newRetryTestClient(t, 2, `[{"name": "repo1"}]`)
+
+	result, err := client.FetchRepositories(context.Background(), "testorg", func(r []*github.Repository) []*github.Repository { return r })
+	if err != nil {
+		t.Fatalf("FetchRepositories() error = %v", err)
+	}
+	if *calls != 3 {
+		t.Errorf("calls = %d, want 3", *calls)
+	}
+	if len(result) != 1 || result[0].GetName() != "repo1" {
+		t.Errorf("FetchRepositories() = %v, want repo1", result)
+	}
+}
+
+func TestClient_FetchRepositoriesGivesUpAfterRetries(t *testing.T) {
+	client, calls := newRetryTestClient(t, 100, `[]`)
+
+	_, err := client.FetchRepositories(context.Background(), "testorg", func(r []*github.Repository) []*github.Repository { return r })
+	if err == nil {
+		t.Error("FetchRepositories() expected error but got none")
+	}
+	if *calls != 3 {
+		t.Errorf("calls = %d, want 3", *calls)
 	}
 }
 
