@@ -113,6 +113,120 @@ func TestClient_GetLanguagesError(t *testing.T) {
 	}
 }
 
+func TestClient_FetchRepositories(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		expectedPath := "/orgs/testorg/repos"
+		if r.URL.Path != expectedPath {
+			t.Errorf("Expected path %s, got %s", expectedPath, r.URL.Path)
+		}
+
+		repos := []map[string]any{
+			{"name": "repo1", "archived": false},
+			{"name": "repo2", "archived": true},
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(repos); err != nil {
+			t.Errorf("Failed to encode response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	githubClient := github.NewClient(&http.Client{})
+	githubClient.BaseURL, _ = url.Parse(server.URL + "/")
+
+	client := &Client{
+		GitHubClient: githubClient,
+	}
+
+	notArchived := func(repos []*github.Repository) []*github.Repository {
+		var out []*github.Repository
+		for _, r := range repos {
+			if !r.GetArchived() {
+				out = append(out, r)
+			}
+		}
+		return out
+	}
+
+	result, err := client.FetchRepositories(context.Background(), "testorg", notArchived)
+	if err != nil {
+		t.Fatalf("FetchRepositories() error = %v", err)
+	}
+
+	if len(result) != 1 || result[0].GetName() != "repo1" {
+		t.Errorf("FetchRepositories() = %v, want only repo1", result)
+	}
+}
+
+func TestClient_FetchRepositoriesError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		if _, err := w.Write([]byte(`{"message": "Not Found"}`)); err != nil {
+			t.Errorf("Failed to write response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	githubClient := github.NewClient(&http.Client{})
+	githubClient.BaseURL, _ = url.Parse(server.URL + "/")
+
+	client := &Client{
+		GitHubClient: githubClient,
+	}
+
+	_, err := client.FetchRepositories(context.Background(), "nonexistent", func(r []*github.Repository) []*github.Repository { return r })
+	if err == nil {
+		t.Error("FetchRepositories() expected error but got none")
+	}
+}
+
+func TestClient_FetchRepositoriesPagination(t *testing.T) {
+	var serverURL string
+	pagesRequested := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		pagesRequested++
+
+		var repos []map[string]any
+		switch r.URL.Query().Get("page") {
+		case "":
+			w.Header().Set("Link", `<`+serverURL+`/orgs/testorg/repos?page=2>; rel="next"`)
+			repos = []map[string]any{{"name": "repo1"}}
+		case "2":
+			repos = []map[string]any{{"name": "repo2"}}
+		default:
+			t.Errorf("unexpected page %q", r.URL.Query().Get("page"))
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(repos); err != nil {
+			t.Errorf("Failed to encode response: %v", err)
+		}
+	}))
+	defer server.Close()
+	serverURL = server.URL
+
+	githubClient := github.NewClient(&http.Client{})
+	githubClient.BaseURL, _ = url.Parse(server.URL + "/")
+
+	client := &Client{
+		GitHubClient: githubClient,
+	}
+
+	result, err := client.FetchRepositories(context.Background(), "testorg", func(r []*github.Repository) []*github.Repository { return r })
+	if err != nil {
+		t.Fatalf("FetchRepositories() error = %v", err)
+	}
+
+	if pagesRequested != 2 {
+		t.Errorf("pages requested = %d, want 2", pagesRequested)
+	}
+
+	if len(result) != 2 || result[0].GetName() != "repo1" || result[1].GetName() != "repo2" {
+		t.Errorf("FetchRepositories() = %v, want repo1 and repo2", result)
+	}
+}
+
 func TestNewGitHubAppClient(t *testing.T) {
 	ctx := context.Background()
 
