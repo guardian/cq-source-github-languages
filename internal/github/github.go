@@ -140,7 +140,7 @@ var retryDelay = 5 * time.Second
 
 func (c *Client) listLanguagesWithRetry(ctx context.Context, owner string, name string) (map[string]int, error) {
 	var err error
-	for range 3 {
+	for attempt := 0; attempt < 3; attempt++ {
 		var langs map[string]int
 		var r *github.Response
 		langs, r, err = c.GitHubClient.Repositories.ListLanguages(ctx, owner, name)
@@ -151,7 +151,14 @@ func (c *Client) listLanguagesWithRetry(ctx context.Context, owner string, name 
 			// not server error, so not much point retrying
 			return nil, err
 		}
-		time.Sleep(retryDelay)
+		if attempt == 2 {
+			break
+		}
+		select {
+		case <- ctx.Done():
+			return nil, ctx.Err()
+		case <- time.After(retryDelay):
+		}
 	}
 	return nil, err
 }
@@ -170,7 +177,7 @@ func (c *Client) GetLanguages(ctx context.Context, owner string, name string) (*
 
 func (c *Client) fetchRepositoriesWithRetry(ctx context.Context, org string, opts *github.RepositoryListByOrgOptions) ([]*github.Repository, *github.Response, error) {
 	var err error
-	for range 3 {
+	for attempt := 0; attempt < 3; attempt++ {
 		var repos []*github.Repository
 		var r *github.Response
 		repos, r, err = c.GitHubClient.Repositories.ListByOrg(ctx, org, opts)
@@ -181,7 +188,14 @@ func (c *Client) fetchRepositoriesWithRetry(ctx context.Context, org string, opt
 			// not server error, so not much point retrying
 			return nil, nil, err
 		}
-		time.Sleep(retryDelay)
+		if attempt == 2 {
+			break
+		}
+		select {
+		case <- ctx.Done():
+			return nil, nil, ctx.Err()
+		case <- time.After(retryDelay):
+		}
 	}
 	return nil, nil, err
 }
