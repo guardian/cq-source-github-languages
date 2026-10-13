@@ -147,6 +147,7 @@ func (c *Client) listLanguagesWithRetry(ctx context.Context, owner string, name 
 			// not server error, so not much point retrying
 			return nil, err
 		}
+		time.Sleep(5 * time.Second)
 	}
 	return nil, err
 }
@@ -174,6 +175,7 @@ func (c *Client) fetchRepositoriesWithRetry(ctx context.Context, org string, opt
 			// not server error, so not much point retrying
 			return nil, nil, err
 		}
+		time.Sleep(5 * time.Second)
 	}
 	return nil, nil, err
 }
