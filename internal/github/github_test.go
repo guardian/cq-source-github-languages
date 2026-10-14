@@ -3,11 +3,13 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-github/v57/github"
 )
@@ -110,6 +112,222 @@ func TestClient_GetLanguagesError(t *testing.T) {
 
 	if err == nil {
 		t.Error("GetLanguages() expected error but got none")
+	}
+}
+
+func TestClient_FetchRepositories(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		expectedPath := "/orgs/testorg/repos"
+		if r.URL.Path != expectedPath {
+			t.Errorf("Expected path %s, got %s", expectedPath, r.URL.Path)
+		}
+
+		repos := []map[string]any{
+			{"name": "repo1", "archived": false},
+			{"name": "repo2", "archived": true},
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(repos); err != nil {
+			t.Errorf("Failed to encode response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	githubClient := github.NewClient(&http.Client{})
+	githubClient.BaseURL, _ = url.Parse(server.URL + "/")
+
+	client := &Client{
+		GitHubClient: githubClient,
+	}
+
+	notArchived := func(repos []*github.Repository) []*github.Repository {
+		var out []*github.Repository
+		for _, r := range repos {
+			if !r.GetArchived() {
+				out = append(out, r)
+			}
+		}
+		return out
+	}
+
+	result, err := client.FetchRepositories(context.Background(), "testorg", notArchived)
+	if err != nil {
+		t.Fatalf("FetchRepositories() error = %v", err)
+	}
+
+	if len(result) != 1 || result[0].GetName() != "repo1" {
+		t.Errorf("FetchRepositories() = %v, want only repo1", result)
+	}
+}
+
+func TestClient_FetchRepositoriesError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		if _, err := w.Write([]byte(`{"message": "Not Found"}`)); err != nil {
+			t.Errorf("Failed to write response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	githubClient := github.NewClient(&http.Client{})
+	githubClient.BaseURL, _ = url.Parse(server.URL + "/")
+
+	client := &Client{
+		GitHubClient: githubClient,
+	}
+
+	_, err := client.FetchRepositories(context.Background(), "nonexistent", func(r []*github.Repository) []*github.Repository { return r })
+	if err == nil {
+		t.Error("FetchRepositories() expected error but got none")
+	}
+}
+
+func TestClient_FetchRepositoriesPagination(t *testing.T) {
+	var serverURL string
+	pagesRequested := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		pagesRequested++
+
+		var repos []map[string]any
+		switch r.URL.Query().Get("page") {
+		case "":
+			w.Header().Set("Link", `<`+serverURL+`/orgs/testorg/repos?page=2>; rel="next"`)
+			repos = []map[string]any{{"name": "repo1"}}
+		case "2":
+			repos = []map[string]any{{"name": "repo2"}}
+		default:
+			t.Errorf("unexpected page %q", r.URL.Query().Get("page"))
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(repos); err != nil {
+			t.Errorf("Failed to encode response: %v", err)
+		}
+	}))
+	defer server.Close()
+	serverURL = server.URL
+
+	githubClient := github.NewClient(&http.Client{})
+	githubClient.BaseURL, _ = url.Parse(server.URL + "/")
+
+	client := &Client{
+		GitHubClient: githubClient,
+	}
+
+	result, err := client.FetchRepositories(context.Background(), "testorg", func(r []*github.Repository) []*github.Repository { return r })
+	if err != nil {
+		t.Fatalf("FetchRepositories() error = %v", err)
+	}
+
+	if pagesRequested != 2 {
+		t.Errorf("pages requested = %d, want 2", pagesRequested)
+	}
+
+	if len(result) != 2 || result[0].GetName() != "repo1" || result[1].GetName() != "repo2" {
+		t.Errorf("FetchRepositories() = %v, want repo1 and repo2", result)
+	}
+}
+
+func newRetryTestClient(t *testing.T, failures int, okBody string) (*Client, *int) {
+	t.Helper()
+	oldDelay := retryDelay
+	retryDelay = time.Millisecond
+	t.Cleanup(func() { retryDelay = oldDelay })
+
+	calls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		w.Header().Set("Content-Type", "application/json")
+		if calls <= failures {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"message": "Server Error"}`))
+			return
+		}
+		_, _ = w.Write([]byte(okBody))
+	}))
+	t.Cleanup(server.Close)
+
+	githubClient := github.NewClient(&http.Client{})
+	githubClient.BaseURL, _ = url.Parse(server.URL + "/")
+	return &Client{GitHubClient: githubClient}, &calls
+}
+
+func TestClient_GetLanguagesRetriesOnServerError(t *testing.T) {
+	client, calls := newRetryTestClient(t, 2, `{"Go": 1}`)
+
+	result, err := client.GetLanguages(context.Background(), "testowner", "testrepo")
+	if err != nil {
+		t.Fatalf("GetLanguages() error = %v", err)
+	}
+	if *calls != 3 {
+		t.Errorf("calls = %d, want 3", *calls)
+	}
+	if len(result.Languages) != 1 || result.Languages[0] != "Go" {
+		t.Errorf("Languages = %v, want [Go]", result.Languages)
+	}
+}
+
+func TestClient_GetLanguagesGivesUpAfterRetries(t *testing.T) {
+	client, calls := newRetryTestClient(t, 100, `{}`)
+
+	_, err := client.GetLanguages(context.Background(), "testowner", "testrepo")
+	if err == nil {
+		t.Error("GetLanguages() expected error but got none")
+	}
+	if *calls != 3 {
+		t.Errorf("calls = %d, want 3", *calls)
+	}
+}
+
+func TestClient_FetchRepositoriesRetriesOnServerError(t *testing.T) {
+	client, calls := newRetryTestClient(t, 2, `[{"name": "repo1"}]`)
+
+	result, err := client.FetchRepositories(context.Background(), "testorg", func(r []*github.Repository) []*github.Repository { return r })
+	if err != nil {
+		t.Fatalf("FetchRepositories() error = %v", err)
+	}
+	if *calls != 3 {
+		t.Errorf("calls = %d, want 3", *calls)
+	}
+	if len(result) != 1 || result[0].GetName() != "repo1" {
+		t.Errorf("FetchRepositories() = %v, want repo1", result)
+	}
+}
+
+func TestClient_FetchRepositoriesGivesUpAfterRetries(t *testing.T) {
+	client, calls := newRetryTestClient(t, 100, `[]`)
+
+	_, err := client.FetchRepositories(context.Background(), "testorg", func(r []*github.Repository) []*github.Repository { return r })
+	if err == nil {
+		t.Error("FetchRepositories() expected error but got none")
+	}
+	if *calls != 3 {
+		t.Errorf("calls = %d, want 3", *calls)
+	}
+}
+
+func TestWithRetry_StopsWhenContextCancelled(t *testing.T) {
+	oldDelay := retryDelay
+	retryDelay = time.Minute
+	t.Cleanup(func() { retryDelay = oldDelay })
+
+	ctx, cancel := context.WithCancel(context.Background())
+	calls := 0
+	_, _, err := withRetry(ctx, func(attempt int) (int, *github.Response, error) {
+		calls++
+		if attempt != calls {
+			t.Errorf("Retry function call %d passed attempt id %d", calls, attempt)
+		}
+		cancel()
+		return 0, &github.Response{Response: &http.Response{StatusCode: http.StatusInternalServerError}}, errors.New("boom")
+	})
+
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("error = %v, want context.Canceled", err)
+	}
+	if calls != 1 {
+		t.Errorf("calls = %d, want 1", calls)
 	}
 }
 

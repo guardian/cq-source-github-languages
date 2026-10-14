@@ -136,8 +136,30 @@ func newGitHubAppTransport(ctx context.Context, appID, installationID int64, pri
 	}, nil
 }
 
+var retryDelay = 5 * time.Second
+
+const maxAttempts = 3
+
+func withRetry[T any](ctx context.Context, fn func(attempt int) (T, *github.Response, error)) (T, *github.Response, error) {
+	for attempt := 1; ; attempt++ {
+		v, r, err := fn(attempt)
+		// 4xx errors are presumably our fault, so not worth retrying
+		if err == nil || (r != nil && r.StatusCode < 500) || attempt >= maxAttempts {
+			return v, r, err
+		}
+		select {
+		case <-ctx.Done():
+			return v, r, ctx.Err()
+		case <-time.After(retryDelay):
+		}
+	}
+}
+
 func (c *Client) GetLanguages(ctx context.Context, owner string, name string) (*Languages, error) {
-	langs, _, err := c.GitHubClient.Repositories.ListLanguages(ctx, owner, name)
+	langs, _, err := withRetry(ctx, func(attempt int) (map[string]int, *github.Response, error) {
+		fmt.Printf("Listing languages for repo %s/%s, attempt %d\n", owner, name, attempt)
+		return c.GitHubClient.Repositories.ListLanguages(ctx, owner, name)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -147,5 +169,38 @@ func (c *Client) GetLanguages(ctx context.Context, owner string, name string) (*
 		Languages: maps.Keys(langs),
 	}
 	return l, nil
+}
 
+func (c *Client) FetchRepositories(ctx context.Context, org string, repoFilter func([]*github.Repository) []*github.Repository) ([]*github.Repository, error) {
+	opts := &github.RepositoryListByOrgOptions{
+		ListOptions: github.ListOptions{
+			PerPage: 100,
+		}}
+
+	var allRepos []*github.Repository
+	for {
+		repos, resp, err := withRetry(ctx, func(attempt int) ([]*github.Repository, *github.Response, error) {
+			page := opts.Page
+			// In the first request opts.Page will be the zero value, so not included in query params, which
+			// github will interpret as a request for page 1. Fix that for the logging messages too.
+			if page == 0 {
+				page = 1
+			}
+			fmt.Printf("Listing repositories for org %s, page %d, attempt %d\n", org, page, attempt)
+			return c.GitHubClient.Repositories.ListByOrg(ctx, org, opts)
+		})
+
+		if err != nil {
+			return nil, err
+		}
+
+		allRepos = append(allRepos, repoFilter(repos)...)
+
+		fmt.Println("Counted", len(allRepos), "repos so far")
+		if resp.NextPage == 0 {
+			break
+		}
+		opts.Page = resp.NextPage
+	}
+	return allRepos, nil
 }
