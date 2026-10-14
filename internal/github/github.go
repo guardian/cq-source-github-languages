@@ -140,9 +140,9 @@ var retryDelay = 5 * time.Second
 
 const maxAttempts = 3
 
-func withRetry[T any](ctx context.Context, fn func() (T, *github.Response, error)) (T, *github.Response, error) {
+func withRetry[T any](ctx context.Context, fn func(attempt int) (T, *github.Response, error)) (T, *github.Response, error) {
 	for attempt := 1; ; attempt++ {
-		v, r, err := fn()
+		v, r, err := fn(attempt)
 		// 4xx errors are presumably our fault, so not worth retrying
 		if err == nil || (r != nil && r.StatusCode < 500) || attempt >= maxAttempts {
 			return v, r, err
@@ -156,7 +156,8 @@ func withRetry[T any](ctx context.Context, fn func() (T, *github.Response, error
 }
 
 func (c *Client) GetLanguages(ctx context.Context, owner string, name string) (*Languages, error) {
-	langs, _, err := withRetry(ctx, func() (map[string]int, *github.Response, error) {
+	langs, _, err := withRetry(ctx, func(attempt int) (map[string]int, *github.Response, error) {
+		fmt.Printf("Listing languages for repo %s/%s, attempt %d\n", owner, name, attempt)
 		return c.GitHubClient.Repositories.ListLanguages(ctx, owner, name)
 	})
 	if err != nil {
@@ -178,7 +179,14 @@ func (c *Client) FetchRepositories(ctx context.Context, org string, repoFilter f
 
 	var allRepos []*github.Repository
 	for {
-		repos, resp, err := withRetry(ctx, func() ([]*github.Repository, *github.Response, error) {
+		repos, resp, err := withRetry(ctx, func(attempt int) ([]*github.Repository, *github.Response, error) {
+			page := opts.Page
+			// In the first request opts.Page will be the zero value, so not included in query params, which
+			// github will interpret as a request for page 1. Fix that for the logging messages too.
+			if page == 0 {
+				page = 1
+			}
+			fmt.Printf("Listing repositories for org %s, page %d, attempt %d\n", org, page, attempt)
 			return c.GitHubClient.Repositories.ListByOrg(ctx, org, opts)
 		})
 
@@ -188,7 +196,7 @@ func (c *Client) FetchRepositories(ctx context.Context, org string, repoFilter f
 
 		allRepos = append(allRepos, repoFilter(repos)...)
 
-		fmt.Println("Counted ", len(allRepos), " repos so far")
+		fmt.Println("Counted", len(allRepos), "repos so far")
 		if resp.NextPage == 0 {
 			break
 		}

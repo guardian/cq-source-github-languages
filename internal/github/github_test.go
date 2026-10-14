@@ -314,8 +314,11 @@ func TestWithRetry_StopsWhenContextCancelled(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	calls := 0
-	_, _, err := withRetry(ctx, func() (int, *github.Response, error) {
+	_, _, err := withRetry(ctx, func(attempt int) (int, *github.Response, error) {
 		calls++
+		if attempt != calls {
+			t.Errorf("Retry function call %d passed attempt id %d", calls, attempt)
+		}
 		cancel()
 		return 0, &github.Response{Response: &http.Response{StatusCode: http.StatusInternalServerError}}, errors.New("boom")
 	})
